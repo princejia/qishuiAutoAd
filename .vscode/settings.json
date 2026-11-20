@@ -1,0 +1,23 @@
+{
+  // ========== 平台切换说明 ==========
+  // 切换平台时需同时修改两处：
+  //   1) 本文件的 ascript.platform / ascript.deviceId（下方 iOS / Android 二选一）
+  //   2) __init__.py 顶部的 PLATFORM 常量（"auto" 可自动识别，也可写死 "ios" / "android"）
+  // 设备地址也可点编辑器右上角手机图标「AScript: 选择运行设备」自动写入。
+
+  // ---------- iOS（当前启用）----------
+  // 需 iOS 设备安装 AScript 并启动 WebDriverAgent
+  "ascript.platform": "iOS",
+  "ascript.deviceId": "192.168.1.2:9096",
+
+  // ---------- Android（启用时注释掉上面 iOS 两行，取消下面两行注释）----------
+  // 需安卓手机安装 AScript App，开启无障碍（或 Root / HID）模式；
+  // 设备 IP:端口 在手机 AScript App 首页查看，替换为你的实际地址
+  // "ascript.platform": "Android",
+  // "ascript.deviceId": "192.168.1.100:9096",
+
+  // ---------- Python 解释器（Python 3.9–3.13）----------
+  // 下面为 macOS 示例路径；Windows 请改为例如 "C:\\Users\\你\\AppData\\Local\\Programs\\Python\\Python311\\python.exe"
+  "ascript.pythonPath": "/usr/local/opt/python@3.13/bin/python3.13",
+  "python.defaultInterpreterPath": "/usr/local/opt/python@3.13/bin/python3.13"
+}
