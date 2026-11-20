@@ -680,6 +680,35 @@ def check_and_click_continue_watching() -> bool:
     return False
 
 
+# 直播间优惠券弹窗特征文案（"卷"为常见错别字，OCR 也可能识别成"卷"）
+LIVE_COUPON_PATTERN = r"优惠[券卷]|[领抢]券|券后|立即领取|去使用|立即使用|无门槛|满\d+减|已领取"
+
+
+def close_live_coupon_popup(w: int, h: int) -> bool:
+    """
+    检测并关闭直播间内的优惠券弹窗（仅在已确认进入直播间后调用，避免视频广告误判）。
+    弹窗会盖住直播间并压暗画面，导致关闭按钮模板匹配失败，必须先关掉它。
+    关闭策略：OCR 找弹窗上的 × → Android 返回键 → 点击弹窗外部遮罩（屏幕上方）
+    返回：是否检测到弹窗并执行了关闭动作。
+    """
+    rect_popup = [0, int(h * 0.2), w, h]
+    hit = paddle_find_first(LIVE_COUPON_PATTERN, rect_popup, "直播间优惠券弹窗")
+    if not hit:
+        return False
+    log(f"  检测到直播间优惠券弹窗 '{hit.get('text', '')}' → 先关闭弹窗")
+
+    close_hit = paddle_find_first(r"^[×✕✖Xx]$", rect_popup, "优惠券弹窗关闭符号")
+    if close_hit:
+        safe_click(close_hit["center_x"], close_hit["center_y"], "优惠券弹窗×(OCR)")
+    elif IS_ANDROID and press_back():
+        log("  已按返回键关闭优惠券弹窗")
+    else:
+        # 点击弹窗上方的遮罩区域；避开右上角直播间关闭按钮(y<10%)和底部弹窗本体
+        safe_click(w // 2, int(h * 0.16), "优惠券弹窗外部遮罩")
+    time.sleep(1.0)
+    return True
+
+
 def wait_ad_countdown(timeout=30) -> bool:
     """
     阶段四：在广告界面等待倒计时结束。
@@ -717,6 +746,10 @@ def wait_ad_countdown(timeout=30) -> bool:
     BACK_PRESS_GAP = 4.0
     back_presses = 0
     last_back_at = 0.0
+    # 优惠券弹窗关闭次数限制：防止误判后反复点击遮罩
+    MAX_COUPON_CLOSES = 3
+    coupon_closes = 0
+    seen_live_room = False
 
     while time.time() < deadline:
         checks += 1
@@ -735,6 +768,7 @@ def wait_ad_countdown(timeout=30) -> bool:
             if live_check:
                 log(f"  检测到直播间广告（轮询 {checks} 次）→ 将尝试关闭直播间")
                 is_live_room_logged = True
+                seen_live_room = True
 
         # 检测右上角是否有"更多直播"文字（确认在直播间内，需要关闭）
         more_live_hit = paddle_find_first(r"更多直播", rect_more_live, "直播间识别")
@@ -742,6 +776,15 @@ def wait_ad_countdown(timeout=30) -> bool:
         follow_hit = None
         if not more_live_hit:
             follow_hit = paddle_find_first(r"关注", rect_follow, "关注按钮(左上角)")
+        if more_live_hit or follow_hit:
+            seen_live_room = True
+
+        # 直播间优惠券弹窗：会遮挡/压暗直播间关闭按钮，需先关闭弹窗
+        # （弹窗遮罩可能导致"更多直播"/"关注"识别失败，所以只要进过直播间就检测）
+        if seen_live_room and coupon_closes < MAX_COUPON_CLOSES:
+            if close_live_coupon_popup(w, h):
+                coupon_closes += 1
+                continue
 
         if more_live_hit or follow_hit:
             if more_live_hit:
